@@ -20,6 +20,22 @@ Development (hot reload on :5173, API on :3001): `npm run dev`. Tests: `npm test
 Data lives in `data/chukta.db` (SQLite; override with `DATA_DIR`). Port via `PORT`.
 UPI deep links only open from a phone, so deploy it over HTTPS (any Node 22+ host with a persistent disk) to use it for real.
 
+## Test it on your phone
+
+1. Run the server on your computer (`npm start`). It prints an address like `http://192.168.1.5:3001`.
+2. With the phone on the same Wi-Fi, either open that address in the browser (on iPhone: Share → Add to Home Screen), or install the app and type the address on first launch.
+
+## Android and iOS apps
+
+The `android/` and `ios/` folders are Capacitor projects wrapping the same web app. Every push builds both in GitHub Actions (Actions → Build apps → Artifacts):
+
+- **Chukta-android** — a debug APK you can install directly.
+- **Chukta-ios** — an unsigned `.ipa`. Apple only runs signed apps, so either install it with a sideloading tool that signs with your Apple ID, or on a Mac run `npx cap open ios` and press Run with your phone plugged in.
+
+Run the workflow manually with a `server_url` to bake your hosted server into the apps. After changing web code locally: `npm run build && npx cap sync`.
+
+The look follows the device: Liquid Glass on Apple, Material 3 Expressive on Android. Add `?ui=ios` or `?ui=md` to any URL to preview the other one.
+
 ## How it fits together
 
 | Path | What |
