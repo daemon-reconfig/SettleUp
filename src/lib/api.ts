@@ -1,9 +1,10 @@
 import type { Group } from './money';
+import { serverUrl } from './server';
 
 async function call<T>(method: string, url: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`/api${url}`, {
+    res = await fetch(`${serverUrl()}/api${url}`, {
       method,
       headers: body ? { 'Content-Type': 'application/json' } : undefined,
       body: body ? JSON.stringify(body) : undefined,
@@ -18,6 +19,7 @@ async function call<T>(method: string, url: string, body?: unknown): Promise<T> 
 
 type G = Promise<Group>;
 export const api = {
+  health: (origin: string) => fetch(`${origin}/api/health`).then((r) => r.ok && r.json()).then((d) => !!d?.chukta, () => false),
   createGroup: (name: string, members: { name: string; vpa: string }[]): G => call('POST', '/groups', { name, members }),
   getGroup: (id: string): G => call('GET', `/groups/${id}`),
   renameGroup: (id: string, name: string): G => call('PATCH', `/groups/${id}`, { name }),

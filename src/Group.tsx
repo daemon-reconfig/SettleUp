@@ -4,6 +4,7 @@ import { api } from './lib/api';
 import { forgetGroup, getMe, getProfile, rememberGroup, setProfile } from './lib/local';
 import { fmt, netBalances, simplifyDebts, type Debt, type Expense, type Group, type Settlement } from './lib/money';
 import { isVpa } from './lib/upi';
+import { serverUrl } from './lib/server';
 import { ExpenseSheet } from './ExpenseSheet';
 import { PaySheet } from './PaySheet';
 import { PeopleSheet } from './PeopleSheet';
@@ -16,7 +17,7 @@ function useGroup(id: string) {
     let alive = true;
     const load = () => api.getGroup(id).then((g) => alive && setGroup(g), (e) => alive && setError(e.message));
     load();
-    const es = new EventSource(`/api/groups/${id}/events`); // live updates from everyone else
+    const es = new EventSource(`${serverUrl()}/api/groups/${id}/events`); // live updates from everyone else
     es.onmessage = load;
     const onVisible = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVisible);
@@ -65,7 +66,7 @@ export function GroupScreen({ id }: { id: string }) {
   const toGet = debts.filter((d) => d.to === me);
   const others = debts.filter((d) => d.from !== me && d.to !== me);
   const spent = group.expenses.reduce((a, e) => a + e.amount, 0);
-  const url = `${location.origin}/g/${group.id}`;
+  const url = `${serverUrl()}/g/${group.id}`;
 
   const activity = [
     ...group.expenses.map((e) => ({ t: e.createdAt, e, s: undefined as Settlement | undefined })),

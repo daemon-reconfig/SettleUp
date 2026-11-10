@@ -3,6 +3,7 @@ import express from 'express';
 import { DatabaseSync } from 'node:sqlite';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, existsSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -106,6 +107,14 @@ const app = express();
 app.use(express.json({ limit: '100kb' }));
 
 const api = express.Router();
+// The native apps load their UI from inside the app, so API calls are cross-origin.
+// There are no cookies or logins — the unguessable group id is the only credential — so any origin is fine.
+api.use((req, res, next) => {
+  res.set({ 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE', 'Access-Control-Allow-Headers': 'Content-Type' });
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+api.get('/health', (_req, res) => res.json({ chukta: true }));
 const done = (res, groupId) => { broadcast(groupId); res.json(loadGroup(groupId)); };
 const requireGroup = (id) => {
   if (!db.prepare('SELECT 1 FROM groups WHERE id = ?').get(id)) throw new HttpError(404, 'Group not found');
@@ -233,4 +242,9 @@ app.use((err, _req, res, _next) => {
 });
 
 const port = Number(process.env.PORT) || 3001;
-app.listen(port, () => console.log(`Chukta running on http://localhost:${port}`));
+app.listen(port, () => {
+  console.log(`Chukta running on http://localhost:${port}`);
+  for (const list of Object.values(networkInterfaces())) {
+    for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`  on your Wi-Fi: http://${a.address}:${port}`);
+  }
+});

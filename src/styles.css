@@ -56,7 +56,7 @@ h1, h2, h3, p { margin: 0; }
 .pill:active { transform: scale(0.93); opacity: 0.8; }
 .pill.soft { background: var(--fill); color: var(--text); }
 .pill.icon { width: 34px; padding: 0; }
-.pill svg { width: 16px; height: 16px; }
+.pill { gap: 6px; } .pill svg { width: 16px; height: 16px; }
 
 /* cards & rows */
 .card { background: var(--card); border-radius: 20px; overflow: hidden; }
@@ -96,7 +96,7 @@ button.pass:active { transform: scale(0.975); }
 .steps { display: grid; gap: 2px; } .steps .row { min-height: 68px; } .steps .row::before { display: none; }
 
 /* sheet */
-.scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); animation: scrim-in 0.3s ease both; display: flex; align-items: flex-end; justify-content: center; }
+.scrim { position: fixed; inset: 0; z-index: 20; background: var(--scrim); -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2); animation: scrim-in 0.3s ease both; display: flex; align-items: flex-end; justify-content: center; }
 .scrim.closing { animation: scrim-out 0.26s ease both; }
 .sheet { width: 100%; max-width: 520px; max-height: calc(100dvh - env(safe-area-inset-top) - 20px); background: var(--sheet); border-radius: 28px 28px 0 0; display: flex; flex-direction: column; animation: sheet-in 0.5s var(--ease) both; will-change: transform; box-shadow: 0 -10px 50px rgba(0, 0, 0, 0.35); }
 .closing .sheet { animation: sheet-out 0.26s cubic-bezier(0.4, 0, 1, 1) both; }
@@ -169,3 +169,139 @@ button.pass:active { transform: scale(0.975); }
 .spinner { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--fill); border-top-color: var(--text-2); animation: spin 0.8s linear infinite; margin: 40vh auto 0; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+/* =====================================================================
+   Liquid Glass — Apple devices (html[data-ui='ios'])
+   Translucent, blurred, edge-lit surfaces floating over an ambient backdrop.
+   ===================================================================== */
+:root[data-ui='ios'] {
+  --glass: rgba(255, 255, 255, 0.1); --glass-thick: rgba(34, 34, 40, 0.58);
+  --edge: inset 0 1px 0.5px rgba(255, 255, 255, 0.42), inset 0 -1px 0.5px rgba(255, 255, 255, 0.1), inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  --lift: 0 10px 34px rgba(0, 0, 0, 0.34);
+  --blur: blur(22px) saturate(1.9) brightness(1.1);
+  --card: rgba(255, 255, 255, 0.075); --sheet: var(--glass-thick); --sheet-card: rgba(255, 255, 255, 0.09); --scrim: rgba(0, 0, 0, 0.36);
+  --a1: rgba(94, 92, 230, 0.42); --a2: rgba(255, 55, 95, 0.24); --a3: rgba(10, 132, 255, 0.3);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-ui='ios'] {
+    --glass: rgba(255, 255, 255, 0.52); --glass-thick: rgba(246, 246, 252, 0.68);
+    --edge: inset 0 1px 0.5px #fff, inset 0 0 0 0.5px rgba(255, 255, 255, 0.7);
+    --lift: 0 8px 28px rgba(30, 30, 60, 0.14);
+    --card: rgba(255, 255, 255, 0.7); --sheet-card: rgba(255, 255, 255, 0.66); --scrim: rgba(0, 0, 0, 0.2);
+    --a1: rgba(94, 92, 230, 0.26); --a2: rgba(255, 55, 95, 0.16); --a3: rgba(10, 132, 255, 0.2);
+  }
+}
+[data-ui='ios'] body { background: transparent; }
+[data-ui='ios'] body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(70% 42% at 8% 0%, var(--a1), transparent 70%), radial-gradient(60% 40% at 100% 28%, var(--a2), transparent 70%), radial-gradient(80% 46% at 40% 100%, var(--a3), transparent 70%);
+}
+[data-ui='ios'] :is(.icon-btn, .avatars, .pill.soft, .dock .btn, .toast) {
+  background: var(--glass); color: var(--text); box-shadow: var(--edge), var(--lift);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+}
+[data-ui='ios'] :is(.chip:not(.on), .seg, .app, .vpa, .mini-input) { background: var(--glass); box-shadow: var(--edge); }
+[data-ui='ios'] .icon-btn { width: 40px; height: 40px; }
+[data-ui='ios'] .avatars { padding: 5px 12px 5px 5px; }
+[data-ui='ios'] .card { border-radius: 26px; box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1); }
+[data-ui='ios'] .pass { border-radius: 30px; box-shadow: var(--edge), 0 22px 44px -18px rgba(0, 0, 0, 0.6); }
+[data-ui='ios'] .btn { border-radius: 28px; height: 56px; }
+[data-ui='ios'] .dock { background: none; }
+[data-ui='ios'] .dock .btn { height: 58px; border-radius: 29px; }
+[data-ui='ios'] .banner { border-radius: 26px; box-shadow: var(--edge); }
+[data-ui='ios'] .seg { border-radius: 20px; padding: 3px; }
+[data-ui='ios'] .seg button { border-radius: 17px; height: 36px; }
+[data-ui='ios'] .seg button.on { background: rgba(255, 255, 255, 0.24); box-shadow: var(--edge), 0 2px 10px rgba(0, 0, 0, 0.2); color: var(--text); }
+@media (prefers-color-scheme: light) { [data-ui='ios'] .seg button.on { background: #fff; } }
+[data-ui='ios'] .app { border-radius: 25px; }
+[data-ui='ios'] .qr { border-radius: 30px; }
+[data-ui='ios'] .mini-input { border-radius: 14px; }
+[data-ui='ios'] .scrim { -webkit-backdrop-filter: none; backdrop-filter: none; padding: 0 8px calc(env(safe-area-inset-bottom) + 8px); }
+/* Fade the scrim's colour, not its opacity: an opacity animation on the parent would stop the sheet's blur from seeing the page behind it. */
+@keyframes scrim-in-ios { from { background-color: transparent; } }
+@keyframes scrim-out-ios { to { background-color: transparent; } }
+[data-ui='ios'] .scrim { animation-name: scrim-in-ios; }
+[data-ui='ios'] .scrim.closing { animation-name: scrim-out-ios; }
+[data-ui='ios'] .sheet {
+  border-radius: 40px; background: var(--sheet); max-height: calc(100dvh - env(safe-area-inset-top) - 28px);
+  -webkit-backdrop-filter: blur(44px) saturate(1.9); backdrop-filter: blur(44px) saturate(1.9);
+  box-shadow: var(--edge), 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+[data-ui='ios'] .sheet-foot { padding-bottom: 16px; }
+@keyframes sheet-in-ios { from { transform: translateY(calc(100% + 40px)); } }
+@keyframes sheet-out-ios { to { transform: translateY(calc(100% + 40px)); } }
+[data-ui='ios'] .sheet { animation-name: sheet-in-ios; }
+[data-ui='ios'] .closing .sheet { animation-name: sheet-out-ios; }
+
+/* =====================================================================
+   Material 3 Expressive — Android (html[data-ui='md'])
+   Tonal colour, big friendly shapes, segmented lists, springy shape-morphing buttons.
+   ===================================================================== */
+:root[data-ui='md'] {
+  --bg: #141218; --card: #211f26; --card-2: #2b2930; --fill: #36343b;
+  --text: #e6e0e9; --text-2: #cac4d0; --text-3: #938f99; --sep: #49454f;
+  --green: #86d99b; --orange: #ffb870; --red: #ffb4ab; --blue: #d0bcff;
+  --btn: #d0bcff; --btn-text: #381e72; --sheet: #1d1b20; --sheet-card: #2b2930; --scrim: rgba(0, 0, 0, 0.52);
+  --tonal: #4a4458; --on-tonal: #e8def8; --pc: #4f378b; --on-pc: #eaddff;
+  --round: 'Google Sans', 'Google Sans Text', Roboto, system-ui, sans-serif;
+  --spring: cubic-bezier(0.34, 1.5, 0.64, 1);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-ui='md'] {
+    --bg: #fef7ff; --card: #f3edf7; --card-2: #ece6f0; --fill: #e6e0e9;
+    --text: #1d1b20; --text-2: #49454f; --text-3: #79747e; --sep: #cac4d0;
+    --green: #146c2e; --orange: #8b5000; --red: #ba1a1a; --blue: #6750a4;
+    --btn: #6750a4; --btn-text: #fff; --sheet: #f7f2fa; --sheet-card: #fff; --scrim: rgba(0, 0, 0, 0.36);
+    --tonal: #e8def8; --on-tonal: #4a4458; --pc: #eaddff; --on-pc: #4f378b;
+  }
+}
+[data-ui='md'] body { font-family: var(--round); letter-spacing: 0; }
+[data-ui='md'] .large-title { font-size: 36px; font-weight: 600; letter-spacing: -0.01em; }
+[data-ui='md'] .section-title { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; color: var(--blue); margin: 26px 8px 10px; }
+[data-ui='md'] .row .title { font-weight: 500; }
+/* segmented list: each row is its own tile, the group shares one big rounded outline */
+[data-ui='md'] .card:not(.empty):not([style*='padding']) { background: transparent; border-radius: 24px; display: grid; gap: 2px; }
+[data-ui='md'] .card:not(.empty):not([style*='padding']) > * { background: var(--card); border-radius: 5px; }
+[data-ui='md'] .sheet .card:not([style*='padding']) > * { background: var(--sheet-card); }
+[data-ui='md'] .card.empty, [data-ui='md'] .card[style*='padding'] { border-radius: 28px; }
+[data-ui='md'] :is(.row + .row, .field + .field)::before { display: none; }
+[data-ui='md'] button.row:active { background: color-mix(in srgb, var(--blue) 14%, var(--card)); }
+[data-ui='md'] .emoji { border-radius: 50%; }
+[data-ui='md'] .pass { border-radius: 28px; }
+[data-ui='md'] .banner { border-radius: 24px; background: var(--tonal); color: var(--on-tonal); }
+[data-ui='md'] .banner .muted { color: inherit; opacity: 0.8; }
+/* buttons squish from pill to rounded-rect when pressed */
+[data-ui='md'] .btn { height: 56px; border-radius: 28px; font-weight: 500; transition: transform 0.35s var(--spring), border-radius 0.25s ease, opacity 0.2s; }
+[data-ui='md'] .btn:active { border-radius: 14px; transform: scale(0.98); opacity: 1; }
+[data-ui='md'] .btn.secondary { background: var(--tonal); color: var(--on-tonal); }
+[data-ui='md'] .pill { height: 40px; border-radius: 20px; padding: 0 20px; font-weight: 500; transition: transform 0.35s var(--spring), border-radius 0.25s ease; }
+[data-ui='md'] .pill:active { border-radius: 10px; opacity: 1; }
+[data-ui='md'] .pill.soft { background: var(--tonal); color: var(--on-tonal); }
+[data-ui='md'] .pill.icon { width: 40px; padding: 0; }
+[data-ui='md'] .icon-btn { width: 40px; height: 40px; background: var(--card-2); transition: transform 0.35s var(--spring), border-radius 0.25s ease; }
+[data-ui='md'] .icon-btn:active { border-radius: 12px; opacity: 1; }
+[data-ui='md'] .avatars { background: var(--card-2); padding: 5px 12px 5px 5px; }
+/* extended FAB */
+[data-ui='md'] .dock { background: none; display: flex; justify-content: flex-end; padding-right: max(16px, calc(50vw - 244px)); }
+[data-ui='md'] .dock .btn { width: auto; margin: 0; height: 64px; padding: 0 24px 0 20px; border-radius: 22px; background: var(--pc); color: var(--on-pc); font-size: 16px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+[data-ui='md'] .dock .btn:active { border-radius: 32px; transform: scale(0.96); }
+[data-ui='md'] .chip { border-radius: 10px; background: transparent; box-shadow: inset 0 0 0 1px var(--sep); }
+[data-ui='md'] .chip.on { background: var(--tonal); color: var(--on-tonal); box-shadow: none; }
+/* connected button group */
+[data-ui='md'] .seg { background: none; padding: 0; gap: 3px; border-radius: 0; }
+[data-ui='md'] .seg button { height: 44px; border-radius: 8px; background: var(--sheet-card); color: var(--text-2); font-weight: 500; transition: border-radius 0.3s var(--spring), background 0.2s, color 0.2s; }
+[data-ui='md'] .seg button:first-child { border-radius: 22px 8px 8px 22px; }
+[data-ui='md'] .seg button:last-child { border-radius: 8px 22px 22px 8px; }
+[data-ui='md'] .seg button.on { background: var(--btn); color: var(--btn-text); border-radius: 22px; box-shadow: none; }
+[data-ui='md'] .tick { border-radius: 6px; }
+[data-ui='md'] .tick svg path { stroke: var(--btn-text); }
+[data-ui='md'] .mini-input { border-radius: 10px; }
+[data-ui='md'] .scrim { -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-ui='md'] .sheet { border-radius: 28px 28px 0 0; box-shadow: none; }
+@media (min-width: 560px) { [data-ui='md'] .sheet { border-radius: 28px; } }
+[data-ui='md'] .grabber { width: 32px; height: 4px; margin: 8px auto 12px; }
+[data-ui='md'] .qr { border-radius: 28px; }
+[data-ui='md'] .app { border-radius: 25px; height: 50px; background: var(--tonal); color: var(--on-tonal); transition: transform 0.35s var(--spring), border-radius 0.25s ease; }
+[data-ui='md'] .app:active { border-radius: 12px; }
+[data-ui='md'] .vpa { background: var(--sheet-card); }
+[data-ui='md'] .toast { top: auto; bottom: calc(env(safe-area-inset-bottom) + 100px); border-radius: 10px; background: var(--text); color: var(--bg); }

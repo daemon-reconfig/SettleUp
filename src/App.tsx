@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './lib/api';
 import { getGroups, getProfile, rememberGroup, setProfile, type SavedGroup } from './lib/local';
 import { isVpa } from './lib/upi';
+import { isNative, parseLink, serverUrl, setServerUrl } from './lib/server';
 import { GroupScreen } from './Group';
 import { Icon, Sheet, Toaster, passStyle, toast } from './ui';
 
@@ -18,6 +19,8 @@ export function App() {
     return () => window.removeEventListener('popstate', on);
   }, []);
   const gid = path.match(/^\/g\/([\w-]+)/)?.[1];
+  const [, refresh] = useState(0);
+  if (isNative && !serverUrl()) return <><Connect onDone={() => refresh((n) => n + 1)} /><Toaster /></>;
   return (
     <>
       {gid ? <GroupScreen key={gid} id={gid} /> : <Home />}
@@ -29,11 +32,15 @@ export function App() {
 function Home() {
   const [groups] = useState<SavedGroup[]>(getGroups);
   const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
   return (
     <div className="page">
+      <div className="nav">
+        <span className="grow" />
+        <button className="pill soft" onClick={() => setJoining(true)}>{Icon.link} Join with a link</button>
+      </div>
       {groups.length ? (
         <>
-          <div className="nav" />
           <h1 className="large-title">Chukta</h1>
           <div className="pass-list">
             {groups.map((g) => (
@@ -46,7 +53,7 @@ function Home() {
         </>
       ) : (
         <>
-          <div className="hero-copy">
+          <div className="hero-copy" style={{ marginTop: 28 }}>
             <h1 className="large-title">Split it.<br />Tap. Paid.</h1>
             <p>Add an expense, and everyone gets a one-tap UPI payment with the exact amount filled in.</p>
           </div>
@@ -59,6 +66,7 @@ function Home() {
       )}
       <div className="dock"><button className="btn" onClick={() => setCreating(true)}>{Icon.plus} New group</button></div>
       {creating && <Sheet title="New group" onClose={() => setCreating(false)}><CreateGroup /></Sheet>}
+      {joining && <Sheet title="Join a group" onClose={() => setJoining(false)}><JoinLink /></Sheet>}
     </div>
   );
 }
@@ -124,5 +132,55 @@ function CreateGroup() {
       </div>
       <div className="sheet-foot"><button className="btn" disabled={!ready || busy} onClick={create}>Create group</button></div>
     </>
+  );
+}
+
+/** Paste a group link someone shared (links open the browser, so the apps need this). */
+function JoinLink() {
+  const [link, setLink] = useState('');
+  const parsed = parseLink(link);
+  const go = () => {
+    if (!parsed?.groupId) return toast('That doesn’t look like a group link');
+    if (isNative && parsed.origin !== serverUrl()) setServerUrl(parsed.origin);
+    navigate(`/g/${parsed.groupId}`);
+  };
+  return (
+    <>
+      <div className="sheet-body">
+        <div className="card"><div className="field"><input autoFocus placeholder="Paste the group link" value={link} onChange={(e) => setLink(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && go()} /></div></div>
+        <p className="caption">It looks like …/g/AbC123 — ask whoever made the group to share it.</p>
+      </div>
+      <div className="sheet-foot"><button className="btn" disabled={!parsed?.groupId} onClick={go}>Open group</button></div>
+    </>
+  );
+}
+
+/** First launch of a native build with no server baked in. */
+function Connect({ onDone }: { onDone: () => void }) {
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const connect = async () => {
+    const parsed = parseLink(value);
+    if (!parsed) return toast('Enter a server address or group link');
+    setBusy(true);
+    if (!(await api.health(parsed.origin))) {
+      setBusy(false);
+      return toast('Couldn’t reach a Chukta server there');
+    }
+    setServerUrl(parsed.origin);
+    if (parsed.groupId) history.replaceState(null, '', `/g/${parsed.groupId}`);
+    onDone();
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  };
+  return (
+    <div className="page">
+      <div className="hero-copy">
+        <h1 className="large-title">Connect to your server</h1>
+        <p>Paste a group link, or the address your Chukta server is running at.</p>
+      </div>
+      <div className="card"><div className="field"><input placeholder="192.168.1.5:3001 or a group link" value={value} onChange={(e) => setValue(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && connect()} /></div></div>
+      <p className="caption">Your phone and the server need to be on the same Wi-Fi unless the server is hosted online.</p>
+      <button className="btn" disabled={!value.trim() || busy} onClick={connect}>Connect</button>
+    </div>
   );
 }

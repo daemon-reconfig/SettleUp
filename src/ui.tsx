@@ -33,6 +33,7 @@ export const Icon = {
   checkCur: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   copy: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="11" height="11" rx="2.5" /><path d="M5 15V6a2 2 0 012-2h9" /></svg>,
   bell: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9a6 6 0 1112 0c0 6 2.5 7 2.5 7h-17S6 15 6 9zM10 20a2 2 0 004 0" /></svg>,
+  link: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 14a4.5 4.5 0 006.4 0l3-3a4.5 4.5 0 00-6.4-6.4l-1 1M14 10a4.5 4.5 0 00-6.4 0l-3 3a4.5 4.5 0 006.4 6.4l1-1" /></svg>,
   plus: <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>,
 };
 
@@ -64,7 +65,19 @@ export async function shareOrCopy(data: { title?: string; text: string; url?: st
   await copy([data.text, data.url].filter(Boolean).join(' '), 'Copied — paste it in your group chat');
 }
 export async function copy(text: string, done = 'Copied') {
-  try { await navigator.clipboard.writeText(text); toast(done); } catch { toast('Couldn’t copy'); }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast(done);
+  } catch {
+    // Clipboard API needs HTTPS; fall back for plain-http testing on a local network.
+    const ta = Object.assign(document.createElement('textarea'), { value: text });
+    ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    toast(ok ? done : 'Couldn’t copy');
+  }
 }
 
 // ---- bottom sheet -------------------------------------------------------
