@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { api } from './lib/api';
+import { api } from './lib/sync';
 import { fmt, type Debt, type Group } from './lib/money';
 import { UPI_APPS, isMobile, upiUri, type UpiRequest } from './lib/upi';
 import { CheckBurst, Icon, Sheet, copy, haptic, toast, useSheetClose } from './ui';
@@ -23,6 +23,12 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState('');
   const mobile = isMobile();
+  // Show where the UPI ID came from, and flag it if it was swapped recently — money goes wherever it points.
+  const setBy = payee.vpaBy === payee.owner && payee.owner ? payee.name : group.members.find((m) => m.owner && m.owner === payee.vpaBy)?.name;
+  const vpaFresh = !!payee.vpaChanged && Date.now() - (payee.vpaAt ?? 0) < 3 * 86400e3;
+  const vpaNote = !payee.vpa ? '' : vpaFresh
+    ? `This UPI ID was changed recently${setBy ? ` by ${setBy}` : ''}. Check with ${payee.name} before paying.`
+    : payee.owner && payee.vpaBy === payee.owner ? `Added by ${payee.name} from their own phone` : `Added by ${setBy ?? 'someone'} — ${payee.name} hasn’t confirmed it yet`;
 
   const req: UpiRequest = useMemo(
     () => ({ vpa: payee.vpa, name: payee.name, amount: debt.amount, note: group.name.replace(/[^\w ]/g, '').trim() || 'Chukta' }),
@@ -43,7 +49,7 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
   const markPaid = async () => {
     setBusy(true);
     try {
-      onGroup(await api.settle(group.id, { from: debt.from, to: debt.to, amount: debt.amount, createdBy: me }));
+      onGroup(await api.settle(group.id, { from: debt.from, to: debt.to, amount: debt.amount }));
       setStage('done');
       haptic([12, 60, 24]);
       setTimeout(close, 1700);
@@ -78,6 +84,7 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
             <button className="vpa" onClick={() => copy(payee.vpa, 'UPI ID copied')}>
               <span className="ellipsis">{payee.vpa}</span>{Icon.copy}
             </button>
+            {vpaNote && <p className={`caption ${vpaFresh ? 'orange' : ''}`} style={{ textAlign: 'center', margin: '2px 0 6px' }}>{vpaNote}</p>}
             <p className="caption" style={{ textAlign: 'center', marginBottom: 0 }}>
               {mobile ? 'Or scan this from another phone — the amount is built in.' : 'Scan with any UPI app — the amount is built in.'}
             </p>

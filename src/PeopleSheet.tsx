@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { api } from './lib/api';
+import { api } from './lib/sync';
 import type { Group, Member } from './lib/money';
 import { isVpa } from './lib/upi';
 import { getProfile, setProfile } from './lib/local';
 import { Avatar, Sheet, toast } from './ui';
 
-interface Props { group: Group; me: string; focus?: string; onGroup: (g: Group) => void; onClose: () => void; onSwitch: () => void }
+interface Props { group: Group; me: string; myKey: string; focus?: string; onGroup: (g: Group) => void; onClose: () => void }
 
-export function PeopleSheet({ group, me, focus, onGroup, onClose, onSwitch }: Props) {
-  const [editing, setEditing] = useState<string | null>(focus ?? null);
+export function PeopleSheet({ group, me, myKey, focus, onGroup, onClose }: Props) {
+  const mine = (m: Member) => !m.owner || m.owner === myKey; // can this phone edit them?
+  const isCreator = group.creator === myKey;
+  const start = group.members.find((m) => m.id === focus);
+  const [editing, setEditing] = useState<string | null>(start && mine(start) ? start.id : null);
   const [adding, setAdding] = useState(false);
 
   return (
@@ -28,13 +31,17 @@ export function PeopleSheet({ group, me, focus, onGroup, onClose, onSwitch }: Pr
                 onRemove={m.id === me ? undefined : async () => { onGroup(await api.removeMember(group.id, m.id)); setEditing(null); }}
               />
             ) : (
-              <button className="row" key={m.id} onClick={() => { setEditing(m.id); setAdding(false); }}>
+              <button className="row" key={m.id} onClick={() => {
+                if (mine(m)) { setEditing(m.id); setAdding(false); }
+                else if (isCreator) api.release(group.id, m.id).then(() => toast(`${m.name} can now join again from a new phone`), (e) => toast(e.message));
+                else toast(`Only ${m.name} can change their own details`);
+              }}>
                 <Avatar m={m} />
                 <div className="grow">
                   <div className="title ellipsis">{m.name}{m.id === me && <span className="muted" style={{ fontWeight: 400 }}> · you</span>}</div>
-                  <div className={`sub ellipsis${m.vpa ? '' : ' orange'}`}>{m.vpa || 'No UPI ID yet'}</div>
+                  <div className={`sub ellipsis${m.vpa ? '' : ' orange'}`}>{m.vpa || 'No UPI ID yet'}{!m.owner && ' · hasn’t joined yet'}</div>
                 </div>
-                <span className="muted small">Edit</span>
+                <span className="muted small">{mine(m) ? 'Edit' : isCreator ? 'Reset' : '🔒'}</span>
               </button>
             ),
           )}
@@ -49,7 +56,9 @@ export function PeopleSheet({ group, me, focus, onGroup, onClose, onSwitch }: Pr
             <button className="row tight" onClick={() => { setAdding(true); setEditing(null); }} style={{ color: 'var(--blue)', fontWeight: 500 }}>Add a person</button>
           )}
         </div>
-        <button className="btn plain" style={{ marginTop: 8 }} onClick={onSwitch}>I’m someone else on this list</button>
+        <p className="caption" style={{ marginTop: 12 }}>
+          Once someone joins, only their phone can change their name and UPI ID.{isCreator && ' If a friend switches phones, tap Reset on them so they can join again.'}
+        </p>
       </div>
     </Sheet>
   );

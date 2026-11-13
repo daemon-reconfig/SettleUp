@@ -2,7 +2,13 @@
 export type SplitMode = 'equal' | 'exact' | 'percent' | 'shares' | 'adjust';
 export type Amounts = Record<string, number>;
 
-export interface Member { id: string; name: string; vpa: string }
+export interface Member {
+  id: string; name: string; vpa: string;
+  /** Public key of the device that claimed this member ("this is me"). Only that device can edit them. */
+  owner?: string;
+  /** When the UPI ID was last set, by which device, and whether it replaced an earlier one. */
+  vpaAt?: number; vpaBy?: string; vpaChanged?: boolean;
+}
 export interface Expense {
   id: string; title: string; emoji: string; amount: number;
   paidBy: Amounts; shares: Amounts;
@@ -12,6 +18,8 @@ export interface Expense {
 export interface Settlement { id: string; from: string; to: string; amount: number; createdBy: string | null; createdAt: number }
 export interface Group {
   id: string; name: string; createdAt: number;
+  /** Public key of the device that created the group. */
+  creator?: string | null;
   members: Member[]; expenses: Expense[]; settlements: Settlement[];
 }
 export interface Debt { from: string; to: string; amount: number }

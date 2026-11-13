@@ -66,13 +66,6 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Chukta connects to your server when it runs on your Wi-Fi.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>upi</string>

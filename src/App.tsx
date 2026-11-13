@@ -1,26 +1,24 @@
 import { useEffect, useState } from 'react';
-import { api } from './lib/api';
+import { api } from './lib/sync';
 import { getGroups, getProfile, rememberGroup, setProfile, type SavedGroup } from './lib/local';
 import { isVpa } from './lib/upi';
-import { isNative, parseLink, serverUrl, setServerUrl } from './lib/server';
+import { parseInvite } from './lib/platform';
 import { GroupScreen } from './Group';
 import { Icon, Sheet, Toaster, passStyle, toast } from './ui';
 
 export function navigate(path: string) {
-  history.pushState(null, '', path);
-  window.dispatchEvent(new PopStateEvent('popstate'));
+  location.hash = path === '/' ? '' : path;
 }
+const route = () => location.hash.replace(/^#/, '') || '/';
 
 export function App() {
-  const [path, setPath] = useState(location.pathname);
+  const [path, setPath] = useState(route);
   useEffect(() => {
-    const on = () => { setPath(location.pathname); window.scrollTo(0, 0); };
-    window.addEventListener('popstate', on);
-    return () => window.removeEventListener('popstate', on);
+    const on = () => { setPath(route()); window.scrollTo(0, 0); };
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
   }, []);
   const gid = path.match(/^\/g\/([\w-]+)/)?.[1];
-  const [, refresh] = useState(0);
-  if (isNative && !serverUrl()) return <><Connect onDone={() => refresh((n) => n + 1)} /><Toaster /></>;
   return (
     <>
       {gid ? <GroupScreen key={gid} id={gid} /> : <Home />}
@@ -60,7 +58,7 @@ function Home() {
           <div className="card steps">
             <div className="row"><span className="emoji">🧾</span><div><div className="title">Split any way you like</div><div className="sub">Equal, exact, percent, shares or adjustments</div></div></div>
             <div className="row"><span className="emoji">📲</span><div><div className="title">Pay from GPay, PhonePe or Paytm</div><div className="sub">Amount and UPI ID are already filled in</div></div></div>
-            <div className="row"><span className="emoji">✅</span><div><div className="title">Ticked off for everyone</div><div className="sub">Balances update live across the group</div></div></div>
+            <div className="row"><span className="emoji">✅</span><div><div className="title">Ticked off for everyone</div><div className="sub">Synced phone to phone, end-to-end encrypted</div></div></div>
           </div>
         </>
       )}
@@ -95,7 +93,7 @@ function CreateGroup() {
       const members = [{ name: me, vpa: vpa.trim() }, ...[...others, ...pending].map((n) => ({ name: n, vpa: '' }))];
       const g = await api.createGroup(name, members);
       setProfile({ name: me.trim(), vpa: vpa.trim() });
-      rememberGroup(g.id, g.name, g.members[0].id);
+      rememberGroup(g.id, g.name);
       navigate(`/g/${g.id}`);
     } catch (e) {
       toast((e as Error).message);
@@ -135,52 +133,18 @@ function CreateGroup() {
   );
 }
 
-/** Paste a group link someone shared (links open the browser, so the apps need this). */
+/** Paste an invite link (links open the browser, so the apps need a way in). */
 function JoinLink() {
   const [link, setLink] = useState('');
-  const parsed = parseLink(link);
-  const go = () => {
-    if (!parsed?.groupId) return toast('That doesn’t look like a group link');
-    if (isNative && parsed.origin !== serverUrl()) setServerUrl(parsed.origin);
-    navigate(`/g/${parsed.groupId}`);
-  };
+  const secret = parseInvite(link.trim());
+  const go = () => (secret ? navigate(`/g/${secret}`) : toast('That doesn’t look like an invite link'));
   return (
     <>
       <div className="sheet-body">
-        <div className="card"><div className="field"><input autoFocus placeholder="Paste the group link" value={link} onChange={(e) => setLink(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && go()} /></div></div>
-        <p className="caption">It looks like …/g/AbC123 — ask whoever made the group to share it.</p>
+        <div className="card"><div className="field"><input autoFocus placeholder="Paste the invite link" value={link} onChange={(e) => setLink(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && go()} /></div></div>
+        <p className="caption">Ask whoever made the group to share it. The link is the key to the group — only send it to people who belong in it.</p>
       </div>
-      <div className="sheet-foot"><button className="btn" disabled={!parsed?.groupId} onClick={go}>Open group</button></div>
+      <div className="sheet-foot"><button className="btn" disabled={!secret} onClick={go}>Open group</button></div>
     </>
-  );
-}
-
-/** First launch of a native build with no server baked in. */
-function Connect({ onDone }: { onDone: () => void }) {
-  const [value, setValue] = useState('');
-  const [busy, setBusy] = useState(false);
-  const connect = async () => {
-    const parsed = parseLink(value);
-    if (!parsed) return toast('Enter a server address or group link');
-    setBusy(true);
-    if (!(await api.health(parsed.origin))) {
-      setBusy(false);
-      return toast('Couldn’t reach a Chukta server there');
-    }
-    setServerUrl(parsed.origin);
-    if (parsed.groupId) history.replaceState(null, '', `/g/${parsed.groupId}`);
-    onDone();
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  };
-  return (
-    <div className="page">
-      <div className="hero-copy">
-        <h1 className="large-title">Connect to your server</h1>
-        <p>Paste a group link, or the address your Chukta server is running at.</p>
-      </div>
-      <div className="card"><div className="field"><input placeholder="192.168.1.5:3001 or a group link" value={value} onChange={(e) => setValue(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="url" onKeyDown={(e) => e.key === 'Enter' && connect()} /></div></div>
-      <p className="caption">Your phone and the server need to be on the same Wi-Fi unless the server is hosted online.</p>
-      <button className="btn" disabled={!value.trim() || busy} onClick={connect}>Connect</button>
-    </div>
   );
 }

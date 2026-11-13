@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { api } from './lib/api';
+import { api } from './lib/sync';
 import { computeShares, fmt, toPaise, toRupees, type Amounts, type Expense, type Group, type SplitMode } from './lib/money';
 import { Avatar, Icon, Sheet, haptic, toast, useSheetClose } from './ui';
 
@@ -78,7 +78,7 @@ function Form({ group, me, expense: ex, onGroup }: Props) {
     setBusy(true);
     try {
       const t = title.trim() || 'Expense';
-      const body = { title: t, emoji: guessEmoji(t), amount: total, paidBy, shares: result.shares, split: { mode, values }, createdBy: ex?.createdBy ?? me };
+      const body = { title: t, emoji: guessEmoji(t), amount: total, paidBy, shares: result.shares, split: { mode, values } };
       onGroup(await api.saveExpense(group.id, body, ex?.id));
       haptic([10, 40, 16]);
       close();
@@ -98,14 +98,14 @@ function Form({ group, me, expense: ex, onGroup }: Props) {
   return (
     <>
       <div className="sheet-body">
-        <div className="amount-input">
+        <label className="amount-input" style={{ fontSize: amountStr.length > 9 ? 38 : amountStr.length > 7 ? 46 : undefined }}>
           <span>₹</span>
           <input
             autoFocus={!ex} inputMode="decimal" placeholder="0" aria-label="Amount in rupees" value={amountStr}
-            style={{ width: `${Math.max(1, amountStr.length)}ch` }}
+            style={{ width: `calc(${Math.max(1, amountStr.length)}ch + 0.3em)` }}
             onChange={(e) => /^\d{0,8}(\.\d{0,2})?$/.test(e.target.value) && setAmountStr(e.target.value)}
           />
-        </div>
+        </label>
         <div className="title-input">
           <input placeholder="What was it for?" aria-label="Description" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={60} enterKeyHint="done" />
         </div>

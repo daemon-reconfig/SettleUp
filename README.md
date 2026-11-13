@@ -3,50 +3,55 @@
 Split expenses with friends and settle over UPI in one tap. ("Chukta" = settled.)
 
 - **Flexible splits** — equal, exact amounts, percentages, shares, or adjustments; one or many payers.
-- **One-tap pay** — whoever you owe, you get their UPI QR and deep links into GPay / PhonePe / Paytm / any UPI app with the amount and UPI ID prefilled.
-- **Ticked off live** — mark it paid and everyone's balances update instantly.
-- **No sign-up** — a group is a private link. Open it, pick your name, done.
+- **One-tap pay** — whoever you owe, you get their UPI QR and deep links into GPay / PhonePe / Paytm with the amount and UPI ID prefilled.
+- **No server, no sign-up** — data lives on each phone and syncs phone-to-phone, end-to-end encrypted.
+- **Native look** — Liquid Glass on Apple devices, Material 3 Expressive on Android (`?ui=ios` / `?ui=md` to preview either).
+
+## How sync works
+
+A group is a random 128-bit key, carried in the invite link after the `#` (browsers never send that part anywhere).
+
+- Every change (add expense, mark paid, …) is an operation, **encrypted** with a key derived from the group key and **signed** by the device that made it.
+- Operations are saved on the device and mirrored through free public [Nostr](https://nostr.com) relays, which act as mailboxes. Relays see only ciphertext.
+- Every device reduces the same operations to the same balances (`src/lib/ledger.ts`), so there is nothing to conflict.
+- The app works offline; changes go out when you're back. If a relay loses data, any phone that has it re-uploads it.
+
+## Security model
+
+- Only people with the invite link can read or write the group. **The link is the key — share it only with the group.**
+- Joining ties your name to your phone. After that only your phone can change your name or UPI ID, so nobody can redirect your payments. The pay sheet says who added a UPI ID and warns if it changed recently.
+- Whoever created the group can reset a member who switched phones.
+- Anyone in the group can add, edit or delete expenses (like Splitwise). Payments are self-reported — UPI gives apps no way to confirm a transfer — and can be removed if money never arrived.
+- Not protected against: a group member acting in bad faith with a modified app (they could, for example, backdate changes), or losing every phone that holds the group.
 
 ## Run
 
 ```bash
 npm install
-npm run build
-npm start        # http://localhost:3001
+npm run dev      # http://localhost:5173
+npm test
 ```
 
-Development (hot reload on :5173, API on :3001): `npm run dev`. Tests: `npm test`.
-
-Data lives in `data/chukta.db` (SQLite; override with `DATA_DIR`). Port via `PORT`.
-UPI deep links only open from a phone, so deploy it over HTTPS (any Node 22+ host with a persistent disk) to use it for real.
-
-## Test it on your phone
-
-1. Run the server on your computer (`npm start`). It prints an address like `http://192.168.1.5:3001`.
-2. With the phone on the same Wi-Fi, either open that address in the browser (on iPhone: Share → Add to Home Screen), or install the app and type the address on first launch.
+It is a static site: `npm run build` produces `dist/`, which GitHub Pages can serve for free (`.github/workflows/web.yml`; enable once under repo Settings → Pages → Source: GitHub Actions).
+For offline development, `npm run relay` starts a local relay; open the app with `?relays=ws://localhost:7777`.
 
 ## Android and iOS apps
 
-The `android/` and `ios/` folders are Capacitor projects wrapping the same web app. Every push builds both in GitHub Actions (Actions → Build apps → Artifacts):
+`android/` and `ios/` are Capacitor projects wrapping the same web app. Every push builds both in GitHub Actions (Actions → Build apps → Artifacts):
 
 - **Chukta-android** — a debug APK you can install directly.
-- **Chukta-ios** — an unsigned `.ipa`. Apple only runs signed apps, so either install it with a sideloading tool that signs with your Apple ID, or on a Mac run `npx cap open ios` and press Run with your phone plugged in.
+- **Chukta-ios** — an unsigned `.ipa`; install with a sideloading tool that signs with your Apple ID, or on a Mac run `npx cap open ios` and press Run.
 
-Run the workflow manually with a `server_url` to bake your hosted server into the apps. After changing web code locally: `npm run build && npx cap sync`.
+The web code is bundled inside the apps, so app users get changes by installing a new build. After changing web code locally: `npm run build && npx cap sync`.
 
-The look follows the device: Liquid Glass on Apple, Material 3 Expressive on Android. Add `?ui=ios` or `?ui=md` to any URL to preview the other one.
-
-## How it fits together
+## Code map
 
 | Path | What |
 | --- | --- |
-| `server/index.js` | Express API, SQLite storage, server-sent events for live sync |
-| `src/lib/money.ts` | Split maths, balances, debt simplification (all integer paise) |
+| `src/lib/ledger.ts` | Operations and the reducer that turns them into group state |
+| `src/lib/sync.ts` | Encryption, device keys, local storage, relay sync |
+| `src/lib/money.ts` | Split maths, balances, debt simplification (integer paise) |
 | `src/lib/upi.ts` | `upi://pay` links and per-app schemes |
 | `src/Group.tsx`, `src/ExpenseSheet.tsx`, `src/PaySheet.tsx` | The main screens |
 
-## Things to know
-
-- **Payments are self-reported.** UPI gives ordinary apps no way to confirm a transfer, so the payer taps "mark as paid" and the payee can remove it if money never arrived.
-- **Anyone with the group link can edit the group**, including UPI IDs. Share links only with the people in the group.
-- Some UPI apps limit or block deep-link payments to personal UPI IDs. The QR and copyable UPI ID are always there as a fallback.
+Some UPI apps limit or block deep-link payments to personal UPI IDs; the QR and copyable UPI ID are always there as a fallback.

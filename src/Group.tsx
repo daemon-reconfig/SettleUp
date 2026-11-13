@@ -1,29 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
 import { navigate } from './App';
-import { api } from './lib/api';
-import { forgetGroup, getMe, getProfile, rememberGroup, setProfile } from './lib/local';
+import { api, type SyncStatus } from './lib/sync';
+import { forgetGroup, getProfile, rememberGroup, setProfile } from './lib/local';
 import { fmt, netBalances, simplifyDebts, type Debt, type Expense, type Group, type Settlement } from './lib/money';
 import { isVpa } from './lib/upi';
-import { serverUrl } from './lib/server';
+import { inviteUrl } from './lib/platform';
 import { ExpenseSheet } from './ExpenseSheet';
 import { PaySheet } from './PaySheet';
 import { PeopleSheet } from './PeopleSheet';
 import { Avatar, Icon, Sheet, passStyle, shareOrCopy, toast, useSheetClose } from './ui';
 
 function useGroup(id: string) {
-  const [group, setGroup] = useState<Group | null>(null);
+  const [state, setState] = useState<{ group: Group | null; status: SyncStatus | null; myKey: string }>({ group: null, status: null, myKey: '' });
   const [error, setError] = useState('');
-  useEffect(() => {
-    let alive = true;
-    const load = () => api.getGroup(id).then((g) => alive && setGroup(g), (e) => alive && setError(e.message));
-    load();
-    const es = new EventSource(`${serverUrl()}/api/groups/${id}/events`); // live updates from everyone else
-    es.onmessage = load;
-    const onVisible = () => document.visibilityState === 'visible' && load();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { alive = false; es.close(); document.removeEventListener('visibilitychange', onVisible); };
-  }, [id]);
-  return { group, setGroup, error };
+  // Fires with what's saved on this device straight away, then again whenever anyone's change arrives.
+  useEffect(() => api.watch(id, (group, status, myKey) => setState({ group, status, myKey }), (e) => setError(e.message)), [id]);
+  return { ...state, error };
 }
 
 type SheetState =
@@ -33,31 +25,36 @@ type SheetState =
 const day = (t: number) => new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 export function GroupScreen({ id }: { id: string }) {
-  const { group, setGroup, error } = useGroup(id);
-  const [me, setMe] = useState(() => getMe(id));
+  const { group, status, myKey, error } = useGroup(id);
+  const setGroup = (_: Group) => {}; // state arrives through the watcher
+  const me = group?.members.find((m) => m.owner === myKey)?.id;
   const [sheet, setSheet] = useState<SheetState>(null);
 
-  useEffect(() => { if (group) rememberGroup(group.id, group.name, me); }, [group?.id, group?.name, me]);
+  useEffect(() => { if (group) rememberGroup(group.id, group.name); }, [group?.id, group?.name]);
 
   const net = useMemo(() => (group ? netBalances(group) : {}), [group]);
   const debts = useMemo(() => simplifyDebts(net), [net]);
 
   if (!group) {
-    if (!error) return <div className="spinner" role="status" aria-label="Loading" />;
+    if (!error && !status?.searched) return <div className="spinner" role="status" aria-label="Loading" />;
     return (
       <div className="page">
         <div className="empty" style={{ marginTop: '22vh' }}>
-          <div className="glyph">🫥</div>
-          <h2 style={{ color: 'var(--text)' }}>Can’t open this group</h2>
-          <p style={{ margin: '6px 0 20px' }}>{error}</p>
-          <button className="btn secondary" onClick={() => { if (/not found/i.test(error)) forgetGroup(id); navigate('/'); }}>Go home</button>
+          <div className="glyph">{error ? '🫥' : '📡'}</div>
+          <h2 style={{ color: 'var(--text)' }}>{error ? 'Can’t open this group' : 'Still looking for this group'}</h2>
+          <p style={{ margin: '6px 0 20px' }}>
+            {error || (status?.online
+              ? 'Nothing has arrived yet. Ask someone in the group to open the app — their phone will send it over. This page updates by itself.'
+              : 'You’re offline. Connect to the internet and it will load by itself.')}
+          </p>
+          <button className="btn secondary" onClick={() => { forgetGroup(id); navigate('/'); }}>Go home</button>
         </div>
       </div>
     );
   }
 
   const meMember = group.members.find((m) => m.id === me);
-  if (!meMember) return <Join group={group} onJoined={(g, mid) => { setGroup(g); setMe(mid); }} />;
+  if (!meMember) return <Join group={group} myKey={myKey} />;
 
   const name = (mid: string) => (mid === me ? 'You' : group.members.find((m) => m.id === mid)?.name ?? 'Someone');
   const member = (mid: string) => group.members.find((m) => m.id === mid) ?? { id: mid, name: '?', vpa: '' };
@@ -66,14 +63,14 @@ export function GroupScreen({ id }: { id: string }) {
   const toGet = debts.filter((d) => d.to === me);
   const others = debts.filter((d) => d.from !== me && d.to !== me);
   const spent = group.expenses.reduce((a, e) => a + e.amount, 0);
-  const url = `${serverUrl()}/g/${group.id}`;
+  const url = inviteUrl(group.id);
 
   const activity = [
     ...group.expenses.map((e) => ({ t: e.createdAt, e, s: undefined as Settlement | undefined })),
     ...group.settlements.map((s) => ({ t: s.createdAt, s, e: undefined as Expense | undefined })),
   ].sort((a, b) => b.t - a.t);
 
-  const invite = () => shareOrCopy({ title: group.name, text: `Join “${group.name}” on Chukta — split expenses and pay each other in one tap:`, url });
+  const invite = () => shareOrCopy({ title: group.name, text: `Join “${group.name}” on Chukta — split expenses and pay each other in one tap. This link is the key to the group, keep it between us:`, url });
   const remind = (d: Debt) => shareOrCopy({ text: `Hey ${name(d.from)}, you owe me ${fmt(d.amount)} for “${group.name}”. Pay in one tap here:`, url });
 
   return (
@@ -96,6 +93,12 @@ export function GroupScreen({ id }: { id: string }) {
           <div className="foot">{group.expenses.length ? `${fmt(spent)} spent across ${group.expenses.length} expense${group.expenses.length > 1 ? 's' : ''}` : 'No expenses yet'}</div>
         </div>
       </div>
+
+      {status && (!status.online || status.pending > 0) && (
+        <p className="caption" style={{ margin: '12px 4px 0' }} role="status">
+          {status.online ? 'Sending your changes to the group…' : 'Offline — saved on this phone, will sync when you’re back online.'}
+        </p>
+      )}
 
       {!meMember.vpa && (
         <button className="banner" onClick={() => setSheet({ kind: 'people', focus: me })}>
@@ -201,8 +204,7 @@ export function GroupScreen({ id }: { id: string }) {
           onAddVpa={() => setSheet({ kind: 'people', focus: sheet.debt.to })} />
       )}
       {sheet?.kind === 'people' && (
-        <PeopleSheet group={group} me={me!} focus={sheet.focus} onGroup={setGroup} onClose={() => setSheet(null)}
-          onSwitch={() => { setSheet(null); setMe(undefined); }} />
+        <PeopleSheet group={group} me={me!} myKey={myKey} focus={sheet.focus} onGroup={setGroup} onClose={() => setSheet(null)} />
       )}
       {sheet?.kind === 'settlement' && (
         <Sheet title="Payment" onClose={() => setSheet(null)}>
@@ -235,41 +237,46 @@ function SettlementBody({ group, s, label, onGroup }: { group: Group; s: Settlem
   );
 }
 
-function Join({ group, onJoined }: { group: Group; onJoined: (g: Group, me: string) => void }) {
+function Join({ group, myKey }: { group: Group; myKey: string }) {
   const profile = getProfile();
   const [name, setName] = useState(profile.name);
   const [vpa, setVpa] = useState(profile.vpa);
   const [busy, setBusy] = useState(false);
   const vpaOk = !vpa.trim() || isVpa(vpa);
+  void myKey;
 
-  const pick = (mid: string) => { rememberGroup(group.id, group.name, mid); onJoined(group, mid); };
-  const join = async () => {
+  const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
-    try {
-      const g = await api.addMember(group.id, { name, vpa: vpa.trim() });
-      setProfile({ name: name.trim(), vpa: vpa.trim() });
-      const added = g.members.find((m) => !group.members.some((o) => o.id === m.id)) ?? g.members[g.members.length - 1];
-      rememberGroup(g.id, g.name, added.id);
-      onJoined(g, added.id);
-    } catch (e) { toast((e as Error).message); setBusy(false); }
+    try { await fn(); } catch (e) { toast((e as Error).message); }
+    setBusy(false);
   };
+  const join = () => run(async () => {
+    await api.addMember(group.id, { name, vpa: vpa.trim() }, true);
+    setProfile({ name: name.trim(), vpa: vpa.trim() });
+  });
+  const open = group.members.filter((m) => !m.owner);
 
   return (
     <div className="page" style={{ paddingBottom: 40 }}>
-      <div className="nav" />
+      <div className="nav"><button className="icon-btn" onClick={() => navigate('/')} aria-label="All groups">{Icon.back}</button></div>
       <div className="pass mini" style={passStyle(group.id)}>
         <div className="top"><span className="name">{group.name}</span><span className="mark">CHUKTA</span></div>
         <div className="foot">{group.members.length} {group.members.length === 1 ? 'person' : 'people'}</div>
       </div>
-      <h2 className="section-title">Who are you?</h2>
-      <div className="card">
-        {group.members.map((m) => (
-          <button className="row" key={m.id} onClick={() => pick(m.id)}>
-            <Avatar m={m} /><div className="grow title ellipsis">{m.name}</div><span className="muted small">That’s me</span>
-          </button>
-        ))}
-      </div>
-      <h2 className="section-title">Not on the list?</h2>
+      {open.length > 0 && (
+        <>
+          <h2 className="section-title">Who are you?</h2>
+          <div className="card">
+            {open.map((m) => (
+              <button className="row" key={m.id} disabled={busy} onClick={() => run(() => api.claim(group.id, m.id))}>
+                <Avatar m={m} /><div className="grow title ellipsis">{m.name}</div><span className="muted small">That’s me</span>
+              </button>
+            ))}
+          </div>
+          <p className="caption">Picking a name ties it to this phone, so only you can change its UPI ID.</p>
+        </>
+      )}
+      <h2 className="section-title">{open.length ? 'Not on the list?' : 'Join this group'}</h2>
       <div className="card">
         <div className="field"><label>Name</label><input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></div>
         <div className="field"><label>UPI ID</label><input placeholder="yourname@bank" value={vpa} onChange={(e) => setVpa(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} inputMode="email" /></div>

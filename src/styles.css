@@ -120,9 +120,9 @@ button.pass:active { transform: scale(0.975); }
 .caption { font-size: 13px; color: var(--text-2); margin: 8px 16px 18px; }
 .group-label { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-2); margin: 22px 16px 8px; display: flex; justify-content: space-between; }
 .group-label span { text-transform: none; letter-spacing: 0; font-weight: 500; }
-.amount-input { display: flex; align-items: baseline; justify-content: center; gap: 4px; padding: 10px 0 2px; font: 700 56px/1.1 var(--round); letter-spacing: -0.03em; }
+.amount-input { display: flex; align-items: baseline; justify-content: center; gap: 4px; padding: 18px 0 10px; min-height: 96px; cursor: text; font-variant-numeric: tabular-nums; font: 700 56px/1.1 var(--round); letter-spacing: -0.03em; }
 .amount-input span { color: var(--text-3); font-size: 40px; }
-.amount-input input { text-align: left; font: inherit; width: 3ch; caret-color: var(--blue); }
+.amount-input input { text-align: left; font: inherit; min-width: 1.3ch; max-width: calc(100% - 1ch); padding: 0; height: 1.2em; caret-color: var(--blue); }
 .title-input { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 auto 6px; }
 .title-input input { text-align: center; font-size: 19px; font-weight: 500; height: 40px; width: 100%; }
 .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 16px; margin: 0 -16px; scrollbar-width: none; }
