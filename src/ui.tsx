@@ -1,5 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 import type { Member } from './lib/money';
+import { isNative } from './lib/platform';
 
 // ---- tiny helpers -------------------------------------------------------
 export function hash(s: string) {
@@ -23,7 +25,14 @@ export function Avatar({ m, size = 40 }: { m: Pick<Member, 'id' | 'name'>; size?
   );
 }
 
-export const haptic = (pattern: number | number[] = 10) => { try { navigator.vibrate?.(pattern); } catch { /* unsupported */ } };
+/** A light tap by default; pass a pattern (array) for the "it worked" buzz. */
+export const haptic = (pattern: number | number[] = 10) => {
+  try {
+    if (!isNative) navigator.vibrate?.(pattern);
+    else if (Array.isArray(pattern)) Haptics.notification({ type: NotificationType.Success });
+    else Haptics.impact({ style: ImpactStyle.Light });
+  } catch { /* unsupported */ }
+};
 
 export const Icon = {
   back: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>,

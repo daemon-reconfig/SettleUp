@@ -30,9 +30,10 @@ export function GroupScreen({ id }: { id: string }) {
   const me = group?.members.find((m) => m.owner === myKey)?.id;
   const [sheet, setSheet] = useState<SheetState>(null);
 
-  useEffect(() => { if (group) rememberGroup(group.id, group.name); }, [group?.id, group?.name]);
-
   const net = useMemo(() => (group ? netBalances(group) : {}), [group]);
+  const mineNow = group?.members.find((m) => m.owner === myKey)?.id;
+  const netNow = mineNow ? net[mineNow] ?? 0 : undefined;
+  useEffect(() => { if (group) rememberGroup(group.id, group.name, { net: netNow, people: group.members.length }); }, [group?.id, group?.name, netNow, group?.members.length]);
   const debts = useMemo(() => simplifyDebts(net), [net]);
 
   if (!group) {
@@ -65,10 +66,20 @@ export function GroupScreen({ id }: { id: string }) {
   const spent = group.expenses.reduce((a, e) => a + e.amount, 0);
   const url = inviteUrl(group.id);
 
+  const waiting = group.members.filter((m) => !m.owner);
+  const dayLabel = (t: number) => {
+    const d = new Date(t).toDateString(), now = Date.now();
+    return d === new Date(now).toDateString() ? 'Today' : d === new Date(now - 86400e3).toDateString() ? 'Yesterday' : day(t);
+  };
   const activity = [
     ...group.expenses.map((e) => ({ t: e.createdAt, e, s: undefined as Settlement | undefined })),
     ...group.settlements.map((s) => ({ t: s.createdAt, s, e: undefined as Expense | undefined })),
   ].sort((a, b) => b.t - a.t);
+  const days: [string, typeof activity][] = [];
+  for (const item of activity) {
+    const label = dayLabel(item.t);
+    if (days.at(-1)?.[0] === label) days.at(-1)![1].push(item); else days.push([label, [item]]);
+  }
 
   const invite = () => shareOrCopy({ title: group.name, text: `Join “${group.name}” on Chukta — split expenses and pay each other in one tap. This link is the key to the group, keep it between us:`, url });
   const remind = (d: Debt) => shareOrCopy({ text: `Hey ${name(d.from)}, you owe me ${fmt(d.amount)} for “${group.name}”. Pay in one tap here:`, url });
@@ -106,6 +117,21 @@ export function GroupScreen({ id }: { id: string }) {
           <span className="grow"><b>Add your UPI ID</b><span className="small muted">So friends can pay you in one tap</span></span>
           <span className="pill">Add</span>
         </button>
+      )}
+
+      {waiting.length > 0 && (
+        <button className="banner calm" onClick={invite}>
+          <span className="stack">{waiting.slice(0, 3).map((m) => <Avatar key={m.id} m={m} size={30} />)}</span>
+          <span className="grow"><b>{waiting.length === 1 ? `${waiting[0].name} hasn’t joined yet` : `${waiting.length} people haven’t joined yet`}</b><span className="small muted">Send them the invite link</span></span>
+          <span className="pill">Invite</span>
+        </button>
+      )}
+
+      {debts.length === 0 && group.expenses.length > 0 && (
+        <div className="card settled" style={{ padding: 16 }}>
+          <span className="tick on">{Icon.check}</span>
+          <div><div className="title">Everyone’s settled up</div><div className="sub">Nobody owes anybody anything.</div></div>
+        </div>
       )}
 
       {toPay.length > 0 && (
@@ -162,38 +188,43 @@ export function GroupScreen({ id }: { id: string }) {
           {group.members.length < 2 && <button className="btn plain" onClick={invite}>Invite friends</button>}
         </div>
       ) : (
-        <div className="card">
-          {activity.map(({ e, s }) => {
-            if (s) {
-              return (
-                <button className="row" key={s.id} onClick={() => setSheet({ kind: 'settlement', s })}>
-                  <span className="emoji" style={{ background: 'color-mix(in srgb, var(--green) 20%, transparent)', color: 'var(--green)' }}>✓</span>
-                  <div className="grow"><div className="title ellipsis">{name(s.from)} paid {name(s.to) === 'You' ? 'you' : name(s.to)}</div><div className="sub">{day(s.createdAt)} · Payment</div></div>
-                  <div className="amt green">{fmt(s.amount)}</div>
-                </button>
-              );
-            }
-            const x = e!;
-            const payers = Object.keys(x.paidBy);
-            const lent = (x.paidBy[me!] ?? 0) - (x.shares[me!] ?? 0);
-            const involved = me! in x.paidBy || me! in x.shares;
-            return (
-              <button className="row" key={x.id} onClick={() => setSheet({ kind: 'expense', expense: x })}>
-                <span className="emoji">{x.emoji}</span>
-                <div className="grow">
-                  <div className="title ellipsis">{x.title}</div>
-                  <div className="sub ellipsis">{day(x.createdAt)} · {payers.length === 1 ? `${name(payers[0])} paid` : `${payers.length} people paid`}</div>
-                </div>
-                <div className="amt">
-                  {fmt(x.amount)}
-                  <div className={`small ${lent > 0 ? 'green' : lent < 0 ? 'orange' : 'muted'}`} style={{ fontWeight: 500 }}>
-                    {lent > 0 ? `you lent ${fmt(lent)}` : lent < 0 ? `you owe ${fmt(lent)}` : involved ? 'even' : 'not involved'}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+        days.map(([label, items]) => (
+          <div key={label}>
+            <div className="day-label">{label}</div>
+            <div className="card">
+              {items.map(({ e, s }) => {
+                if (s) {
+                  return (
+                    <button className="row" key={s.id} onClick={() => setSheet({ kind: 'settlement', s })}>
+                      <span className="emoji" style={{ background: 'color-mix(in srgb, var(--green) 20%, transparent)', color: 'var(--green)' }}>✓</span>
+                      <div className="grow"><div className="title ellipsis">{name(s.from)} paid {name(s.to) === 'You' ? 'you' : name(s.to)}</div><div className="sub">Payment</div></div>
+                      <div className="amt green">{fmt(s.amount)}</div>
+                    </button>
+                  );
+                }
+                const x = e!;
+                const payers = Object.keys(x.paidBy);
+                const lent = (x.paidBy[me!] ?? 0) - (x.shares[me!] ?? 0);
+                const involved = me! in x.paidBy || me! in x.shares;
+                return (
+                  <button className="row" key={x.id} onClick={() => setSheet({ kind: 'expense', expense: x })}>
+                    <span className="emoji">{x.emoji}</span>
+                    <div className="grow">
+                      <div className="title ellipsis">{x.title}</div>
+                      <div className="sub ellipsis">{payers.length === 1 ? `${name(payers[0])} paid` : `${payers.length} people paid`}</div>
+                    </div>
+                    <div className="amt">
+                      {fmt(x.amount)}
+                      <div className={`small ${lent > 0 ? 'green' : lent < 0 ? 'orange' : 'muted'}`} style={{ fontWeight: 500 }}>
+                        {lent > 0 ? `you lent ${fmt(lent)}` : lent < 0 ? `you owe ${fmt(lent)}` : involved ? 'even' : 'not involved'}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))
       )}
 
       <div className="dock"><button className="btn" onClick={() => setSheet({ kind: 'expense' })}>{Icon.plus} Add expense</button></div>

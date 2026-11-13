@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from './lib/sync';
 import { getGroups, getProfile, rememberGroup, setProfile, type SavedGroup } from './lib/local';
 import { isVpa } from './lib/upi';
+import { fmt } from './lib/money';
 import { parseInvite } from './lib/platform';
 import { GroupScreen } from './Group';
 import { Icon, Sheet, Toaster, passStyle, toast } from './ui';
@@ -44,7 +45,11 @@ function Home() {
             {groups.map((g) => (
               <button key={g.id} className="pass mini" style={passStyle(g.id)} onClick={() => navigate(`/g/${g.id}`)}>
                 <div className="top"><span className="name">{g.name}</span><span className="mark">CHUKTA</span></div>
-                <div className="foot">Tap to open</div>
+                <div>
+                  {g.net !== undefined && <div className="label">{g.net < 0 ? 'You owe' : g.net > 0 ? 'You’re owed' : 'All settled'}</div>}
+                  <div className="big">{g.net ? fmt(g.net) : g.net === 0 ? '₹0' : ''}</div>
+                  <div className="foot">{g.people ? `${g.people} ${g.people === 1 ? 'person' : 'people'}` : 'Tap to open'}</div>
+                </div>
               </button>
             ))}
           </div>

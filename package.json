@@ -13,7 +13,10 @@
   "dependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.6.0",
+    "@capacitor/share": "^8.0.3",
     "idb-keyval": "^6.3.0",
     "nostr-tools": "^2.26.0",
     "qrcode": "^1.5.4",
@@ -21,6 +24,7 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.6.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
