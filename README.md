@@ -5,7 +5,7 @@ Split expenses with friends and settle over UPI in one tap. ("Chukta" = settled.
 - **Flexible splits** — equal, exact amounts, percentages, shares, or adjustments; one or many payers.
 - **Pay without typing** — whoever you owe, send their QR straight into GPay / PhonePe / Paytm from the share menu, with the amount and UPI ID already in it.
 - **No server, no sign-up** — data lives on each phone and syncs phone-to-phone, end-to-end encrypted.
-- **Native look** — Liquid Glass on Apple devices, Material 3 Expressive on Android (`?ui=ios` / `?ui=md` to preview either).
+- **Liquid Glass look** on iPhone and Android. A Material 3 Expressive theme is also built in: open with `?ui=md` (`?ui=ios` to switch back).
 
 ## How sync works
 

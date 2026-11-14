@@ -99,13 +99,22 @@ export function Sheet({ title, onClose, children, action }: { title?: string; on
   const panel = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; dy: number } | null>(null);
   const close = useCallback(() => setClosing(true), []);
+  // Each open sheet is a history entry, so Back closes the sheet instead of leaving the screen.
+  const hid = useRef(`${Date.now()}-${Math.random()}`);
+  const finish = () => {
+    if (history.state?.sheet === hid.current) history.back();
+    onClose();
+  };
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    history.pushState({ sheet: hid.current }, '');
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    const onPop = () => history.state?.sheet !== hid.current && close();
     window.addEventListener('keydown', onKey);
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); };
+    window.addEventListener('popstate', onPop);
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop); };
   }, [close]);
 
   // drag the header down to dismiss
@@ -124,7 +133,7 @@ export function Sheet({ title, onClose, children, action }: { title?: string; on
     if (!drag.current || !panel.current) return;
     const { dy } = drag.current;
     drag.current = null;
-    if (dy > 110) return onClose();
+    if (dy > 110) return finish();
     panel.current.style.transition = 'transform 0.35s var(--ease)';
     panel.current.style.transform = '';
   };
@@ -134,7 +143,7 @@ export function Sheet({ title, onClose, children, action }: { title?: string; on
       <div
         className={`scrim${closing ? ' closing' : ''}`}
         onClick={(e) => e.target === e.currentTarget && close()}
-        onAnimationEnd={(e) => closing && e.target === e.currentTarget && onClose()}
+        onAnimationEnd={(e) => closing && e.target === e.currentTarget && finish()}
       >
         <div className="sheet" ref={panel} role="dialog" aria-modal="true" aria-label={title}>
           <div className="sheet-head" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>

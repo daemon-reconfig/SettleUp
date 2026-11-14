@@ -3,15 +3,15 @@ import { Capacitor } from '@capacitor/core';
 export const platform = Capacitor.getPlatform(); // 'web' | 'ios' | 'android'
 export const isNative = Capacitor.isNativePlatform();
 
-/** Liquid Glass on Apple devices, Material 3 Expressive on Android. `?ui=md|ios` overrides. */
+/** Liquid Glass everywhere. The Material 3 Expressive look is still there: open with `?ui=md` (and `?ui=ios` to go back). */
 export function pickUi(): 'ios' | 'md' {
   const forced = new URLSearchParams(location.search).get('ui');
   try {
-    if (forced === 'md' || forced === 'ios') sessionStorage.setItem('chukta:ui', forced);
-    const s = sessionStorage.getItem('chukta:ui');
+    if (forced === 'md' || forced === 'ios') localStorage.setItem('chukta:ui', forced);
+    const s = localStorage.getItem('chukta:ui');
     if (s === 'md' || s === 'ios') return s;
   } catch { /* ignore */ }
-  return platform === 'android' || (platform === 'web' && /Android/i.test(navigator.userAgent)) ? 'md' : 'ios';
+  return 'ios';
 }
 
 /**

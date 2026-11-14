@@ -8,7 +8,9 @@ import { GroupScreen } from './Group';
 import { Icon, Sheet, Toaster, passStyle, toast } from './ui';
 
 export function navigate(path: string) {
-  location.hash = path === '/' ? '' : path;
+  const hash = path === '/' ? '#' : `#${path}`;
+  // Leaving from inside a sheet: take over the sheet's history entry so Back doesn't land on a ghost.
+  if (history.state?.sheet) location.replace(hash); else location.hash = hash;
 }
 const route = () => location.hash.replace(/^#/, '') || '/';
 
