@@ -48,3 +48,26 @@ jobs:
         with:
           name: Chukta-ios
           path: Chukta-unsigned.ipa
+
+  # Publishes the builds on the repo's Releases page so they can be downloaded directly.
+  release:
+    needs: [android, ios]
+    # Still publish the Android build if the iOS job couldn't get a Mac runner.
+    if: ${{ always() && needs.android.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: out, merge-multiple: true }
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mv out/app-debug.apk out/Chukta-android.apk
+          notes="Automatic build of ${GITHUB_SHA::7}.
+
+          - **Chukta-android.apk**: install directly on Android (allow installs from your browser or files app).
+          - **Chukta-unsigned.ipa**: unsigned iPhone build. Install with a sideloading tool that signs it with your Apple ID, or build from ios/ in Xcode."
+          gh release create "v0.1.${{ github.run_number }}" out/* --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "Chukta build ${{ github.run_number }}" --notes "$notes"

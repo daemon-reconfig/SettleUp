@@ -37,7 +37,7 @@ For offline development, `npm run relay` starts a local relay; open the app with
 
 ## Android and iOS apps
 
-`android/` and `ios/` are Capacitor projects wrapping the same web app. Every push builds both in GitHub Actions (Actions → Build apps → Artifacts):
+`android/` and `ios/` are Capacitor projects wrapping the same web app. Every push builds both in GitHub Actions and publishes them on the repo's Releases page:
 
 - **Chukta-android** — a debug APK you can install directly.
 - **Chukta-ios** — an unsigned `.ipa`; install with a sideloading tool that signs with your Apple ID, or on a Mac run `npx cap open ios` and press Run.
