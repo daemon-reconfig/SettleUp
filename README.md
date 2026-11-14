@@ -3,7 +3,7 @@
 Split expenses with friends and settle over UPI in one tap. ("Chukta" = settled.)
 
 - **Flexible splits** — equal, exact amounts, percentages, shares, or adjustments; one or many payers.
-- **Pay without typing** — whoever you owe, send their QR straight into GPay / PhonePe / Paytm from the share menu, with the amount and UPI ID already in it.
+- **Pay without typing** — whoever you owe, the app saves their QR to your photos and opens GPay / PhonePe / Paytm; scan it from the gallery there and the amount and UPI ID are filled in.
 - **No server, no sign-up** — data lives on each phone and syncs phone-to-phone, end-to-end encrypted.
 - **Liquid Glass look** on iPhone and Android. A Material 3 Expressive theme is also built in: open with `?ui=md` (`?ui=ios` to switch back).
 
@@ -54,4 +54,4 @@ The web code is bundled inside the apps, so app users get changes by installing 
 | `src/lib/upi.ts` | `upi://pay` links and per-app schemes |
 | `src/Group.tsx`, `src/ExpenseSheet.tsx`, `src/PaySheet.tsx` | The main screens |
 
-UPI apps refuse most direct links to personal UPI IDs, so the main route is sharing the QR image into the UPI app. Direct links are still offered; if one works on a phone, the app remembers and leads with it. Some apps cap payments from a shared QR at ₹2,000.
+UPI apps refuse most direct links to personal UPI IDs, and treat a shared image as a chat message, so the main route is: save the QR to photos, open the UPI app, and scan it from the gallery there. A direct link is still offered as a fallback. Some apps cap payments from a saved QR at ₹2,000.

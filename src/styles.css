@@ -333,3 +333,7 @@ button.pass:active { transform: scale(0.975); }
 [data-ui='md'] .card.settled { border-radius: 24px; }
 [data-ui='md'] .day-label { color: var(--text-2); font-weight: 500; }
 .caption.orange { color: var(--orange); } .caption.red { color: var(--red); }
+
+.steps-list { margin: 0 4px 6px; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 8px; font-size: 15px; }
+.steps-list li { counter-increment: s; display: flex; gap: 10px; align-items: baseline; }
+.steps-list li::before { content: counter(s); flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--fill); font-size: 13px; font-weight: 600; display: grid; place-items: center; }

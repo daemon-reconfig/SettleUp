@@ -13,9 +13,9 @@ function query({ vpa, name, amount, note }: UpiRequest) {
 export const upiUri = (r: UpiRequest) => `upi://pay?${query(r)}`;
 
 export const UPI_APPS = [
-  { id: 'gpay', name: 'Google Pay', short: 'GPay', color: '#4285F4', link: (r: UpiRequest) => `tez://upi/pay?${query(r)}` },
-  { id: 'phonepe', name: 'PhonePe', short: 'PhonePe', color: '#5f259f', link: (r: UpiRequest) => `phonepe://pay?${query(r)}` },
-  { id: 'paytm', name: 'Paytm', short: 'Paytm', color: '#00baf2', link: (r: UpiRequest) => `paytmmp://pay?${query(r)}` },
+  { id: 'gpay', name: 'Google Pay', short: 'GPay', color: '#4285F4', pkg: 'com.google.android.apps.nbu.paisa.user', scheme: 'tez://', scan: 'Scan any QR code', link: (r: UpiRequest) => `tez://upi/pay?${query(r)}` },
+  { id: 'phonepe', name: 'PhonePe', short: 'PhonePe', color: '#5f259f', pkg: 'com.phonepe.app', scheme: 'phonepe://', scan: 'Scan & Pay', link: (r: UpiRequest) => `phonepe://pay?${query(r)}` },
+  { id: 'paytm', name: 'Paytm', short: 'Paytm', color: '#00baf2', pkg: 'net.one97.paytm', scheme: 'paytmmp://', scan: 'Scan & Pay', link: (r: UpiRequest) => `paytmmp://pay?${query(r)}` },
 ] as const;
 
 export const isMobile = () =>

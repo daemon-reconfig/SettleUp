@@ -1,21 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
-import { Directory, Filesystem } from '@capacitor/filesystem';
-import { Share } from '@capacitor/share';
+import { AppLauncher } from '@capacitor/app-launcher';
+import { Media } from '@capacitor-community/media';
 import { api } from './lib/sync';
 import { fmt, toRupees, type Debt, type Group } from './lib/money';
-import { isNative } from './lib/platform';
+import { isNative, platform } from './lib/platform';
 import { UPI_APPS, isMobile, upiUri, type UpiRequest } from './lib/upi';
 import { Avatar, CheckBurst, Icon, Sheet, copy, haptic, toast, useSheetClose } from './ui';
 
 interface Props { group: Group; debt: Debt; me: string; onGroup: (g: Group) => void; onClose: () => void; onAddVpa: () => void }
 
-// UPI apps refuse most direct links ("intents") to personal UPI IDs, but they do accept the
-// very same request as a QR image. So the main route is: hand the QR to the UPI app through
-// the phone's share menu. Direct links stay available, and if one ever works for this person
-// we remember it and lead with it next time.
-const PREF = 'chukta:paymethod';
+// UPI apps refuse most direct links ("intents") to personal UPI IDs, and treat a shared image as
+// a chat message. What they do accept is their own scanner reading a QR from the phone's photos.
+// So: save the QR to photos, open the UPI app, and tell the person the two taps to make there.
 const GALLERY_QR_CAP = 200000; // ₹2,000 — some apps cap payments made from a saved QR image
+type UpiApp = (typeof UPI_APPS)[number];
 
 export function PaySheet(p: Props) {
   const who = (id: string) => p.group.members.find((m) => m.id === id)?.name ?? '';
@@ -39,24 +38,33 @@ async function qrCard(req: UpiRequest): Promise<HTMLCanvasElement> {
   return c;
 }
 
-/** Returns false if the person backed out of the share menu. */
-async function shareQr(req: UpiRequest): Promise<boolean> {
+/** Puts the QR in the phone's photos, where the UPI app's scanner can pick it up. */
+async function saveQr(req: UpiRequest) {
   const canvas = await qrCard(req);
   if (isNative) {
-    const data = canvas.toDataURL('image/png').split(',')[1];
-    const { uri } = await Filesystem.writeFile({ path: 'chukta-pay.png', data, directory: Directory.Cache });
-    try { await Share.share({ files: [uri], dialogTitle: 'Pay with your UPI app' }); return true; } catch { return false; }
+    const path = canvas.toDataURL('image/png');
+    const fileName = `chukta-pay-${Date.now()}`;
+    if (platform !== 'android') return void (await Media.savePhoto({ path, fileName }));
+    const find = async () => (await Media.getAlbums()).albums.find((a) => a.name === 'Chukta');
+    let album = await find();
+    if (!album) { await Media.createAlbum({ name: 'Chukta' }); album = await find(); }
+    return void (await Media.savePhoto({ path, fileName, albumIdentifier: album?.identifier }));
   }
   const blob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('no image'))), 'image/png'));
   const file = new File([blob], 'chukta-pay.png', { type: 'image/png' });
-  if (navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); return true; } catch { return false; }
-  }
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: 'chukta-pay.png' });
+  // iPhone browsers can't write to Photos directly: the share menu's "Save Image" does it.
+  if (/iPhone|iPad|iPod/i.test(navigator.userAgent) && navigator.canShare?.({ files: [file] })) return void (await navigator.share({ files: [file] }));
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `chukta-pay-${Date.now()}.png` });
   a.click();
-  URL.revokeObjectURL(a.href);
-  toast('QR saved. In your UPI app: Scan → pick from gallery');
-  return true;
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/** Opens the UPI app itself (its home screen), not a payment link. */
+async function launch(app: UpiApp) {
+  if (isNative) return void (await AppLauncher.openUrl({ url: platform === 'android' ? app.pkg : app.scheme }));
+  window.location.href = /Android/i.test(navigator.userAgent)
+    ? `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${app.pkg};end`
+    : app.scheme;
 }
 
 function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
@@ -64,13 +72,11 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
   const payee = group.members.find((m) => m.id === debt.to)!;
   const payer = group.members.find((m) => m.id === debt.from)!;
   const mine = debt.from === me;
-  const [stage, setStage] = useState<'pay' | 'confirm' | 'done'>('pay');
+  const [stage, setStage] = useState<'pay' | 'guide' | 'confirm' | 'done'>('pay');
   const [busy, setBusy] = useState(false);
   const [qr, setQr] = useState('');
-  const [showApps, setShowApps] = useState(false);
-  const [tried, setTried] = useState('');
+  const [app, setApp] = useState<UpiApp>(UPI_APPS[0]);
   const mobile = isMobile();
-  const preferred = useMemo(() => { try { return UPI_APPS.find((a) => `direct:${a.id}` === localStorage.getItem(PREF)); } catch { return undefined; } }, []);
 
   // Show where the UPI ID came from, and flag it if it was swapped recently — money goes wherever it points.
   const setBy = payee.vpaBy === payee.owner && payee.owner ? payee.name : group.members.find((m) => m.owner && m.owner === payee.vpaBy)?.name;
@@ -88,25 +94,31 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
     QRCode.toDataURL(upiUri(req), { margin: 0, width: 600, errorCorrectionLevel: 'M' }).then(setQr, () => setQr(''));
   }, [req, payee.vpa]);
 
-  const sendQr = async () => {
+  const saveAndOpen = async () => {
     haptic();
     setBusy(true);
-    const sent = await shareQr(req).catch(() => { toast('Couldn’t share the QR — take a screenshot instead'); return false; });
+    try {
+      await saveQr(req);
+      // Backup route if the app won't take the picture: the UPI ID is ready to paste.
+      await navigator.clipboard?.writeText(payee.vpa).catch(() => {});
+      toast('QR saved to your photos');
+      await launch(app);
+      setTimeout(() => setStage('confirm'), 700); // the UPI app covers us; this is what they return to
+    } catch {
+      toast('Couldn’t save the QR — take a screenshot of it instead');
+    }
     setBusy(false);
-    if (sent) { setTried('qr'); setStage('confirm'); }
   };
-  const openApp = (id: string, link: string) => {
+  const directLink = () => {
     haptic();
-    setTried(`direct:${id}`);
-    window.location.href = link;
-    setTimeout(() => setStage('confirm'), 700); // the UPI app covers us; this is what they return to
+    window.location.href = app.link(req);
+    setTimeout(() => setStage('confirm'), 700);
   };
 
   const markPaid = async () => {
     setBusy(true);
     try {
       onGroup(await api.settle(group.id, { from: debt.from, to: debt.to, amount: debt.amount }));
-      if (stage === 'confirm' && tried) { try { localStorage.setItem(PREF, tried); } catch { /* ignore */ } }
       setStage('done');
       haptic([12, 60, 24]);
       setTimeout(close, 1700);
@@ -164,34 +176,31 @@ function PayBody({ group, debt, me, onGroup, onAddVpa }: Props) {
             <button className="btn" disabled={busy} onClick={markPaid}>Yes, mark as paid</button>
             <button className="btn plain" onClick={() => setStage('pay')}>Not yet</button>
           </>
+        ) : canPay && stage === 'guide' ? (
+          <>
+            <ol className="steps-list">
+              <li><span>We save this QR to your photos and open {app.name}.</span></li>
+              <li><span>In {app.name}, tap <b>{app.scan}</b>, then the <b>photo / gallery icon</b>.</span></li>
+              <li><span>Pick the newest picture. {payee.name} and {fmt(debt.amount)} fill in by themselves.</span></li>
+            </ol>
+            {debt.amount > GALLERY_QR_CAP && (
+              <p className="caption orange" style={{ margin: '0 8px 4px' }}>Some apps cap a QR from photos at ₹2,000. If yours does, choose “Pay UPI ID” there and paste — the ID is copied for you.</p>
+            )}
+            <button className="btn" disabled={busy} onClick={saveAndOpen}>Save QR and open {app.short}</button>
+            <div className="foot-row">
+              <button className="btn plain" onClick={() => setStage('pay')}>Back</button>
+              <button className="btn plain" onClick={directLink}>Try direct link</button>
+            </div>
+          </>
         ) : canPay ? (
           <>
-            {showApps && (
-              <>
-                <div className="apps">
-                  {UPI_APPS.map((a) => (
-                    <button key={a.id} className="app" onClick={() => openApp(a.id, a.link(req))} aria-label={`Pay with ${a.name}`}><i style={{ background: a.color }} />{a.short}</button>
-                  ))}
-                </div>
-                <p className="caption" style={{ textAlign: 'center', margin: '2px 8px 4px' }}>UPI apps often refuse direct links to personal UPI IDs. If yours does, send the QR instead.</p>
-              </>
-            )}
-            {preferred ? (
-              <button className="btn" onClick={() => openApp(preferred.id, preferred.link(req))}>Pay with {preferred.name}</button>
-            ) : (
-              <button className="btn" disabled={busy} onClick={sendQr}>{Icon.share} Send QR to my UPI app</button>
-            )}
-            <p className={`caption${!preferred && debt.amount > GALLERY_QR_CAP ? ' orange' : ''}`} style={{ textAlign: 'center', margin: '2px 8px 0' }}>
-              {preferred ? 'Worked last time on this phone.'
-                : debt.amount > GALLERY_QR_CAP ? 'Some apps cap a shared QR at ₹2,000. If yours does, scan this from another screen or copy the UPI ID.'
-                : 'Pick GPay, PhonePe or Paytm in the menu — who and how much are already filled in.'}
-            </p>
-            <div className="foot-row">
-              {preferred
-                ? <button className="btn plain" disabled={busy} onClick={sendQr}>Send QR instead</button>
-                : <button className="btn plain" onClick={() => setShowApps((v) => !v)}>{showApps ? 'Hide apps' : 'Open an app directly'}</button>}
-              <button className="btn plain" disabled={busy} onClick={markPaid}>Mark as paid</button>
+            <p className="status muted">Pay with</p>
+            <div className="apps">
+              {UPI_APPS.map((a) => (
+                <button key={a.id} className="app" onClick={() => { haptic(); setApp(a); setStage('guide'); }} aria-label={`Pay with ${a.name}`}><i style={{ background: a.color }} />{a.short}</button>
+              ))}
             </div>
+            <button className="btn plain" disabled={busy} onClick={markPaid}>I’ve paid another way — mark as paid</button>
           </>
         ) : (
           <button className="btn" disabled={busy} onClick={markPaid}>{mine ? 'I’ve paid — mark as paid' : 'Mark as received'}</button>

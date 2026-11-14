@@ -70,8 +70,13 @@
 	<array>
 		<string>upi</string>
 		<string>tez</string>
+		<string>gpay</string>
 		<string>phonepe</string>
 		<string>paytmmp</string>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Chukta saves the payment QR to your photos so your UPI app can read it.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Chukta saves the payment QR to your photos so your UPI app can read it.</string>
 </dict>
 </plist>

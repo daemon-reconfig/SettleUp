@@ -11,12 +11,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@capacitor-community/media": "^9.1.0",
     "@capacitor/android": "^8.6.0",
+    "@capacitor/app-launcher": "^8.0.1",
     "@capacitor/core": "^8.6.0",
-    "@capacitor/filesystem": "^8.1.5",
     "@capacitor/haptics": "^8.0.2",
     "@capacitor/ios": "^8.6.0",
-    "@capacitor/share": "^8.0.3",
     "idb-keyval": "^6.3.0",
     "nostr-tools": "^2.26.0",
     "qrcode": "^1.5.4",
