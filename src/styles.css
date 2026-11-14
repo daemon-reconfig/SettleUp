@@ -337,3 +337,6 @@ button.pass:active { transform: scale(0.975); }
 .steps-list { margin: 0 4px 6px; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 8px; font-size: 15px; }
 .steps-list li { counter-increment: s; display: flex; gap: 10px; align-items: baseline; }
 .steps-list li::before { content: counter(s); flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--fill); font-size: 13px; font-weight: 600; display: grid; place-items: center; }
+
+.btn.two-line { flex-direction: column; gap: 1px; height: auto; min-height: 60px; padding: 10px 18px; text-align: center; }
+.btn.two-line b { font-weight: 600; } .btn.two-line span { font-size: 13px; font-weight: 400; opacity: 0.75; line-height: 1.25; }
